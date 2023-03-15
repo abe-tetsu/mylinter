@@ -2,6 +2,7 @@ package myanalyzer
 
 import (
 	"go/ast"
+	"go/token"
 	"go/types"
 
 	"golang.org/x/tools/go/analysis"
@@ -45,29 +46,35 @@ func findLoopVar(pass *analysis.Pass, forstmt *ast.ForStmt) {
 		return
 	}
 
+	// 左に定義されている変数がない場合は返す
 	if len(assignStmt.Lhs) == 0 {
 		return
 	}
 
+	// ループ変数を取得
 	ident, ok := assignStmt.Lhs[0].(*ast.Ident)
 	if !ok {
 		return
 	}
+	// ループ変数のスコープを取得
+	obj := pass.TypesInfo.ObjectOf(ident)
 
-	if assignStmt != ident.Obj.Decl {
-		return
-	}
-	pass.Reportf(assignStmt.Pos(), "%v found", ident)
-
+	// For 文のスコープを取得
 	forStmtScope, ok := pass.TypesInfo.Scopes[forstmt]
 	if !ok {
 		return
 	}
+
+	// ループ変数の一個上のスコープとFor文のスコープが一致しない場合は返す
+	if forStmtScope != obj.Parent() {
+		return
+	}
+
+	pass.Reportf(assignStmt.Pos(), "%v found", ident)
 	findPointerOfLoopVar(pass, forStmtScope, forstmt.Body)
 }
 
 func findPointerOfLoopVar(pass *analysis.Pass, forstmtScope *types.Scope, body *ast.BlockStmt) {
-
 	ast.Inspect(body, func(n ast.Node) bool {
 		if n == nil {
 			return false
@@ -76,23 +83,21 @@ func findPointerOfLoopVar(pass *analysis.Pass, forstmtScope *types.Scope, body *
 		switch n := n.(type) {
 		case *ast.UnaryExpr:
 			// & じゃなかったら返す
-			//if n.Op != token.AND {
-			//	return true
-			//}
+			// TODO: これがなくてもテストが通るのがおかしい
+			if n.Op != token.AND {
+				return true
+			}
 
 			// x -> &の引数
-			// x, ok := n.X.(*ast.Ident)
-			// if !ok {
-			// 	return false
-			// }
-
-			xScope, ok := pass.TypesInfo.Scopes[n]
+			x, ok := n.X.(*ast.Ident)
 			if !ok {
 				return false
 			}
 
+			obj := pass.TypesInfo.ObjectOf(x)
+
 			// xが宣言されている場所が、ループ変数と一致するときレポート
-			if xScope.Parent() == forstmtScope {
+			if obj.Parent() == forstmtScope {
 				pass.Reportf(n.Pos(), "unary expr found")
 			}
 		}
