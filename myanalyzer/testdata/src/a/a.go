@@ -78,3 +78,23 @@ func appendTest2() {
 	}
 	fmt.Println(m)
 }
+
+func anonymousFuncTest() {
+	foo := 0
+	for foo := foo; foo < 3; foo++ {
+		func() {
+			fmt.Println(foo)
+		}()
+	}
+	for foo := foo; foo < 3; foo++ {
+		func() {
+			fmt.Println(&foo) // TODO: want "foo is pointer" のエラーが必要g
+		}()
+	}
+	for foo := foo; foo < 3; foo++ {
+		foo := foo
+		func() {
+			fmt.Println(&foo)
+		}()
+	}
+}
