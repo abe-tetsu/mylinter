@@ -32,7 +32,6 @@ func run(pass *analysis.Pass) (any, error) {
 	inspect.Preorder(nodeFilter, func(n ast.Node) {
 		switch n := n.(type) {
 		case *ast.ForStmt:
-			// pass.Reportf(n.Pos(), "for found")
 			findLoopVar(pass, n)
 		}
 	})
@@ -71,8 +70,6 @@ func findLoopVar(pass *analysis.Pass, forStmt *ast.ForStmt) {
 	if forStmtScope != obj.Parent() {
 		return
 	}
-
-	pass.Reportf(assignStmt.Pos(), "%v found", ident)
 
 	// for文のループ変数がポインタになっているかチェック
 	findPointerOfLoopVar(pass, forStmtScope, forStmt.Body)
@@ -116,7 +113,8 @@ func findPointerOfLoopVar(pass *analysis.Pass, forStmtScope *types.Scope, body *
 
 				// xが宣言されている場所が、ループ変数と一致するときレポート
 				if obj.Parent() == forStmtScope {
-					pass.Reportf(n.Pos(), "unary expr found")
+					// ポインタが関数の引数に渡されている場合はレポート
+					pass.Reportf(n.Pos(), "%v is pointer", x.Name)
 				}
 			}
 		}
