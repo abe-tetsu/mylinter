@@ -40,14 +40,16 @@ func run(pass *analysis.Pass) (any, error) {
 	return nil, nil
 }
 
-func findLoopVar(pass *analysis.Pass, forstmt *ast.ForStmt) {
-	assignStmt, ok := forstmt.Init.(*ast.AssignStmt)
+func findLoopVar(pass *analysis.Pass, forStmt *ast.ForStmt) {
+	// For文の初期化文を取得
+	assignStmt, ok := forStmt.Init.(*ast.AssignStmt)
 	if !ok {
 		return
 	}
 
 	// 左に定義されている変数がない場合は返す
-	if len(assignStmt.Lhs) == 0 {
+	// foreach文の場合は対象外
+	if len(assignStmt.Lhs) != 1 {
 		return
 	}
 
@@ -59,8 +61,8 @@ func findLoopVar(pass *analysis.Pass, forstmt *ast.ForStmt) {
 	// ループ変数のスコープを取得
 	obj := pass.TypesInfo.ObjectOf(ident)
 
-	// For 文のスコープを取得
-	forStmtScope, ok := pass.TypesInfo.Scopes[forstmt]
+	// For文のスコープを取得
+	forStmtScope, ok := pass.TypesInfo.Scopes[forStmt]
 	if !ok {
 		return
 	}
@@ -71,34 +73,51 @@ func findLoopVar(pass *analysis.Pass, forstmt *ast.ForStmt) {
 	}
 
 	pass.Reportf(assignStmt.Pos(), "%v found", ident)
-	findPointerOfLoopVar(pass, forStmtScope, forstmt.Body)
+
+	// for文のループ変数がポインタになっているかチェック
+	findPointerOfLoopVar(pass, forStmtScope, forStmt.Body)
 }
 
-func findPointerOfLoopVar(pass *analysis.Pass, forstmtScope *types.Scope, body *ast.BlockStmt) {
+func findPointerOfLoopVar(pass *analysis.Pass, forStmtScope *types.Scope, body *ast.BlockStmt) {
 	ast.Inspect(body, func(n ast.Node) bool {
 		if n == nil {
 			return false
 		}
 
 		switch n := n.(type) {
-		case *ast.UnaryExpr:
-			// & じゃなかったら返す
-			// TODO: これがなくてもテストが通るのがおかしい
-			if n.Op != token.AND {
-				return true
-			}
-
-			// x -> &の引数
-			x, ok := n.X.(*ast.Ident)
-			if !ok {
+		// 関数呼び出しに対して処理
+		case *ast.CallExpr:
+			// 引数の数が0の場合は返す
+			if len(n.Args) == 0 {
 				return false
 			}
 
-			obj := pass.TypesInfo.ObjectOf(x)
+			// 全ての引数に対して処理
+			for _, arg := range n.Args {
+				// 関数呼び出しを取得
+				funcCall, ok := arg.(*ast.UnaryExpr)
+				if !ok {
+					return false
+				}
 
-			// xが宣言されている場所が、ループ変数と一致するときレポート
-			if obj.Parent() == forstmtScope {
-				pass.Reportf(n.Pos(), "unary expr found")
+				// & じゃなかったら返す
+				// TODO: これがなくてもテストが通るのがおかしい
+				if funcCall.Op != token.AND {
+					return true
+				}
+
+				// x -> &の引数
+				x, ok := funcCall.X.(*ast.Ident)
+				if !ok {
+					return false
+				}
+
+				obj := pass.TypesInfo.ObjectOf(x)
+
+				// xが宣言されている場所が、ループ変数と一致するときレポート
+				if obj.Parent() == forStmtScope {
+					pass.Reportf(n.Pos(), "unary expr found")
+				}
 			}
 		}
 		return true
