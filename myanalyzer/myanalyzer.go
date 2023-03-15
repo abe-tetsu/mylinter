@@ -97,19 +97,19 @@ func findPointerOfLoopVar(pass *analysis.Pass, forStmtScope *types.Scope, body *
 				// 関数呼び出しを取得
 				funcCall, ok := arg.(*ast.UnaryExpr)
 				if !ok {
-					return false
+					continue
 				}
 
 				// & じゃなかったら返す
 				// TODO: これがなくてもテストが通るのがおかしい
 				if funcCall.Op != token.AND {
-					return true
+					continue
 				}
 
 				// x -> &の引数
 				x, ok := funcCall.X.(*ast.Ident)
 				if !ok {
-					return false
+					continue
 				}
 
 				obj := pass.TypesInfo.ObjectOf(x)

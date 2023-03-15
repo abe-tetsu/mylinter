@@ -85,3 +85,22 @@ func test() {
 		fmt.Println(&foo) // want "unary expr found"
 	}
 }
+
+func appendTest1() {
+	var m []*int
+	foo := 0
+	for foo := foo; foo < 3; foo++ { // want "foo found"
+		m = append(m, &foo) // want "unary expr found"
+	}
+	fmt.Println(m)
+}
+
+func appendTest2() {
+	var m []*int
+	foo := 0
+	for foo := foo; foo < 3; foo++ { // want "foo found"
+		foo := foo
+		m = append(m, &foo)
+	}
+	fmt.Println(m)
+}
