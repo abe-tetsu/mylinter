@@ -98,7 +98,6 @@ func findPointerOfLoopVar(pass *analysis.Pass, forStmtScope *types.Scope, body *
 				}
 
 				// & じゃなかったら返す
-				// TODO: これがなくてもテストが通るのがおかしい
 				if funcCall.Op != token.AND {
 					continue
 				}

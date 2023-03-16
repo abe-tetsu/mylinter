@@ -26,8 +26,8 @@ func testFindPointerOfLoopVar() {
 			a := 1
 			fmt.Println(&a)
 		}
-		for foo := &foo; *foo < 3; *foo++ {
-			fmt.Println(*foo)
+		for foo := foo; foo < 3; foo++ {
+			fmt.Println(-foo)
 		}
 		for foo := foo; foo < 3; foo++ {
 			foo := foo
